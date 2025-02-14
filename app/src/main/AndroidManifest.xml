@@ -1,6 +1,7 @@
 <manifest package="com.example.blekahootstudent"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Permisos BLE -->
     <uses-permission android:name="android.permission.BLUETOOTH"/>
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE"/>
@@ -8,23 +9,25 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-
     <application
         android:allowBackup="true"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.BLEKahootStudent">
-        <activity
-            android:name=".MainActivity"
+
+        <activity android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <activity
-            android:name=".WaitingActivity"
-            android:exported="true" />
-    </application>
 
+        <activity android:name=".WaitingActivity"
+            android:exported="true"/>
+        <activity android:name=".AnswersActivity"
+            android:exported="true"/>
+        <activity android:name=".WaitResultsActivity"
+            android:exported="true"/>
+    </application>
 </manifest>

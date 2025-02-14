@@ -3,13 +3,13 @@ package com.example.blekahootstudent
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.*
+import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 
 class WaitingActivity : AppCompatActivity() {
 
@@ -23,30 +23,28 @@ class WaitingActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_waiting)
 
-        // Inicializar BLE
-        val bluetoothManager = getSystemService(BluetoothManager::class.java)
-        bluetoothAdapter = bluetoothManager.adapter
+        // BLE
+        val manager = getSystemService(BluetoothManager::class.java)
+        bluetoothAdapter = manager.adapter
         bluetoothLeScanner = bluetoothAdapter.bluetoothLeScanner
 
-        // Iniciar escaneo para "NEWROUND"
-        startScanningForNewRound()
+        startScanForNewRound()
     }
 
-    private fun startScanningForNewRound() {
+    private fun startScanForNewRound() {
+        if (isScanning) return
         if (!bluetoothAdapter.isEnabled) {
-            Toast.makeText(this, "Activa Bluetooth para continuar", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Activa Bluetooth", Toast.LENGTH_SHORT).show()
             return
         }
         if (bluetoothLeScanner == null) {
-            Toast.makeText(this, "No se puede escanear en este dispositivo", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "No se puede escanear BLE", Toast.LENGTH_SHORT).show()
             return
         }
-        if (isScanning) return
 
         val filter = ScanFilter.Builder()
-            .setManufacturerData(0x1234, byteArrayOf()) // Mismo ID que uses en el profesor
+            .setManufacturerData(0x1234, byteArrayOf())
             .build()
-
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
@@ -56,7 +54,7 @@ class WaitingActivity : AppCompatActivity() {
         Log.d(TAG, "Escaneo para NEWROUND iniciado")
     }
 
-    private fun stopScanning() {
+    private fun stopScan() {
         if (!isScanning) return
         bluetoothLeScanner?.stopScan(scanCallback)
         isScanning = false
@@ -64,16 +62,14 @@ class WaitingActivity : AppCompatActivity() {
     }
 
     private val scanCallback = object : ScanCallback() {
-        override fun onScanResult(callbackType: Int, result: ScanResult) {
-            super.onScanResult(callbackType, result)
+        override fun onScanResult(cbType: Int, result: ScanResult) {
+            super.onScanResult(cbType, result)
             handleScanResult(result)
         }
-
         override fun onBatchScanResults(results: MutableList<ScanResult>) {
             super.onBatchScanResults(results)
             results.forEach { handleScanResult(it) }
         }
-
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
             Log.e(TAG, "Escaneo falló: $errorCode")
@@ -86,26 +82,21 @@ class WaitingActivity : AppCompatActivity() {
         val dataString = String(data)
         Log.d(TAG, "Recibido: $dataString")
 
-        // Esperamos algo como "NEWROUND:ALL" o "NEWROUND"
         if (dataString.startsWith("NEWROUND")) {
-            // Pasar a pantalla 3
             runOnUiThread {
-                stopScanning()
-                goToScreen3()
+                stopScan()
+                goToAnswers()
             }
         }
     }
 
-    private fun goToScreen3() {
-        // Aquí lanzas tu Activity de respuestas
-        // startActivity(Intent(this, AnswersActivity::class.java))
-        // finish() // para cerrar la pantalla actual
-
-        Toast.makeText(this, "Recibido NEWROUND, pasando a pantalla 3", Toast.LENGTH_SHORT).show()
+    private fun goToAnswers() {
+        startActivity(Intent(this, AnswersActivity::class.java))
+        finish()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        stopScanning()
+        stopScan()
     }
 }
