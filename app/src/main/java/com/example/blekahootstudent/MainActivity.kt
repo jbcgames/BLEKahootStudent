@@ -20,7 +20,7 @@ import androidx.core.app.ActivityCompat
 class MainActivity : AppCompatActivity() {
 
     private val TAG = "Student_Main"
-
+    private var assignedCode: String? = null
     // BLE
     private lateinit var bluetoothAdapter: BluetoothAdapter
     private var advertiser: BluetoothLeAdvertiser? = null
@@ -163,6 +163,7 @@ class MainActivity : AppCompatActivity() {
             .build()
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .setReportDelay(0)
             .build()
 
         bluetoothLeScanner?.startScan(listOf(filter), settings, scanCallback)
@@ -189,36 +190,69 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // FILE: MainActivity.kt (Estudiante)
+
     private fun handleScanResult(result: ScanResult) {
         val record = result.scanRecord ?: return
         val data = record.getManufacturerSpecificData(0x1234) ?: return
         val dataString = String(data)
 
         if (dataString.startsWith("CONF:")) {
-            // CONF:<nombre>:<code>
             val parts = dataString.split(":")
             if (parts.size == 3) {
                 val confirmedName = parts[1]
                 val code = parts[2]
                 if (confirmedName == studentName) {
-                    // Guardar code en SharedPreferences
-                    saveAssignedCode(code)
+                    // (1) Guardar code
+                    assignedCode = code
                     runOnUiThread {
                         tvStatus.text = "Confirmado con código $code. Esperando START..."
+                        btnSendName.isEnabled = false
                     }
+                    // (2) Mandar ACKCODE
+                    advertiseAckCode(code)
                 }
             }
         } else if (dataString.startsWith("START:ALL")) {
-            // Pasar a WaitingActivity
             runOnUiThread {
                 goToWaitingActivity()
             }
         }
     }
 
+
+
     /**
      * Guarda el assignedCode en SharedPreferences (método B).
      */
+    // FILE: MainActivity.kt (Estudiante)
+
+    private fun advertiseAckCode(code: String) {
+        stopAdvertisingIfNeeded() // si ya estabas haciendo un advertise, detenlo
+
+        val dataString = "ACKCODE:$code"
+        val dataToSend = dataString.toByteArray()
+
+        val settings = AdvertiseSettings.Builder()
+            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
+            .setConnectable(false)
+            .build()
+
+        val data = AdvertiseData.Builder()
+            .addManufacturerData(0x1234, dataToSend)
+            .setIncludeDeviceName(false)
+            .build()
+
+        advertiser?.startAdvertising(settings, data, advertiseCallback)
+        isAdvertising = true
+
+        // Detener en 2s
+        Handler(Looper.getMainLooper()).postDelayed({
+            stopAdvertisingIfNeeded()
+        }, 2000)
+    }
+
     private fun saveAssignedCode(code: String) {
         val prefs = getSharedPreferences("BLE_Kahoot_Student", MODE_PRIVATE)
         prefs.edit().putString("assigned_code", code).apply()

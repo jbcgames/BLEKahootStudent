@@ -47,6 +47,7 @@ class WaitingActivity : AppCompatActivity() {
             .build()
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .setReportDelay(0)
             .build()
 
         bluetoothLeScanner?.startScan(listOf(filter), settings, scanCallback)

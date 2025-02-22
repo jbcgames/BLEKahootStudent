@@ -14,6 +14,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 
 class AnswersActivity : AppCompatActivity() {
+    private var hasResponded = false
 
     private val TAG = "AnswersActivity"
 
@@ -98,6 +99,8 @@ class AnswersActivity : AppCompatActivity() {
         }, 2000)
 
         disableButtons()
+        hasResponded = true // <-- Agrega esta línea
+
         Toast.makeText(this, "Respuesta enviada: $answer", Toast.LENGTH_SHORT).show()
     }
 
@@ -147,6 +150,7 @@ class AnswersActivity : AppCompatActivity() {
             .build()
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .setReportDelay(0)
             .build()
 
         bluetoothLeScanner?.startScan(listOf(filter), settings, scanCallback)
@@ -192,6 +196,17 @@ class AnswersActivity : AppCompatActivity() {
                         goToWaitResults()
                     }
                 }
+            }
+        }
+        else if (dataString.startsWith("ENDROUND")) {
+            // Si el estudiante no ha respondido, envía "RESP:<code>:BLANK"
+            if (!hasResponded) {
+                sendResponse("BLANK")
+                // Esto internamente pondrá hasResponded = true y deshabilitará los botones
+            }
+            runOnUiThread {
+                stopScan()
+                goToWaitResults()
             }
         }
     }
