@@ -1,3 +1,4 @@
+
 package com.example.blekahootstudent
 
 import android.bluetooth.BluetoothAdapter
@@ -15,7 +16,16 @@ import androidx.appcompat.app.AppCompatActivity
 
 class AnswersActivity : AppCompatActivity() {
     private var hasResponded = false
-
+    private val ackResAdvertiseCallback = object : AdvertiseCallback() {
+        override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
+            super.onStartSuccess(settingsInEffect)
+            Log.d(TAG, "Advertising ACKRES iniciado correctamente")
+        }
+        override fun onStartFailure(errorCode: Int) {
+            super.onStartFailure(errorCode)
+            Log.e(TAG, "Error al iniciar Advertising ACKRES: $errorCode")
+        }
+    }
     private val TAG = "AnswersActivity"
 
     // BLE
@@ -41,7 +51,7 @@ class AnswersActivity : AppCompatActivity() {
         // Recuperar assignedCode de SharedPreferences
         val prefs = getSharedPreferences("BLE_Kahoot_Student", MODE_PRIVATE)
         assignedCode = prefs.getString("assigned_code", null)
-
+        Log.d(TAG, assignedCode.toString())
         // Referencias UI
         btnA = findViewById(R.id.btnA)
         btnB = findViewById(R.id.btnB)
@@ -69,7 +79,9 @@ class AnswersActivity : AppCompatActivity() {
      */
     private fun sendResponse(answer: String) {
         if (assignedCode == null) {
-            Toast.makeText(this, "No tienes code asignado", Toast.LENGTH_SHORT).show()
+
+            Toast.makeText(this, "No tienes code asignado " + assignedCode.toString(), Toast.LENGTH_SHORT).show()
+            Log.d(TAG, assignedCode.toString())
             return
         }
 
@@ -179,6 +191,41 @@ class AnswersActivity : AppCompatActivity() {
             Log.e(TAG, "Escaneo falló: $errorCode")
         }
     }
+    private var isAdvertisingAckRes = false
+
+    private fun startAckResAdvertisingIndefinitely(code: String) {
+        if (isAdvertisingAckRes) return
+
+        stopAdvertisingIfNeeded()  // si tienes un genérico
+
+        val dataString = "ACKRES:$code"
+        val dataToSend = dataString.toByteArray()
+
+        val settings = AdvertiseSettings.Builder()
+            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
+            .setConnectable(false)
+            .build()
+
+        val data = AdvertiseData.Builder()
+            .addManufacturerData(0x1234, dataToSend)
+            .setIncludeDeviceName(false)
+            .build()
+
+        advertiser?.startAdvertising(settings, data, ackResAdvertiseCallback)
+        isAdvertising = true
+        isAdvertisingAckRes = true
+
+        Log.d(TAG, "Estudiante: Anunciando ACKRES:$code indefinidamente")
+    }
+
+    // Y al destruir la Activity, o si llega otra señal, lo detienes:
+    private fun stopAckResAdvertising() {
+        if (!isAdvertisingAckRes) return
+        stopAdvertisingIfNeeded()
+        isAdvertisingAckRes = false
+        Log.d(TAG, "Estudiante: Publicidad ACKRES detenida")
+    }
 
     private fun handleScanResult(result: ScanResult) {
         val record = result.scanRecord ?: return
@@ -186,19 +233,18 @@ class AnswersActivity : AppCompatActivity() {
         val dataString = String(data)
 
         if (dataString.startsWith("CONFRES:")) {
-            // CONFRES:<code>
             val parts = dataString.split(":")
             if (parts.size == 2) {
                 val code = parts[1]
+                // Si code == assignedCode (o tu lógica), inicia la publicidad "ACKRES:code"
                 if (code == assignedCode) {
-                    runOnUiThread {
-                        stopScan()
-                        goToWaitResults()
-                    }
+                    startAckResAdvertisingIndefinitely(code)
+                    goToWaitResults()
                 }
             }
         }
         else if (dataString.startsWith("ENDROUND")) {
+
             // Si el estudiante no ha respondido, envía "RESP:<code>:BLANK"
             if (!hasResponded) {
                 sendResponse("BLANK")

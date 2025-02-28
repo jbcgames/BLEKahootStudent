@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -22,6 +23,10 @@ class MainActivity : AppCompatActivity() {
     private val TAG = "Student_Main"
     private var assignedCode: String? = null
     // BLE
+    private var isAdvertisingAckStart = false
+
+    private var keepSendingAckStart = false
+
     private lateinit var bluetoothAdapter: BluetoothAdapter
     private var advertiser: BluetoothLeAdvertiser? = null
     private var bluetoothLeScanner: BluetoothLeScanner? = null
@@ -191,6 +196,45 @@ class MainActivity : AppCompatActivity() {
     }
 
     // FILE: MainActivity.kt (Estudiante)
+    private fun sendAckStartRepeatedly() {
+        // Si el flag es falso, no hacemos nada
+        if (!keepSendingAckStart) return
+
+        // Opcional: Detener cualquier advertising previo
+        stopAdvertisingIfNeeded()
+
+        // Aquí formamos el payload
+        val dataString = "ACK_START"
+        val dataToSend = dataString.toByteArray()
+
+        // Creamos configuración de advertising
+        val settings = AdvertiseSettings.Builder()
+            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
+            .setConnectable(false)
+            .build()
+
+        val data = AdvertiseData.Builder()
+            .addManufacturerData(0x1234, dataToSend)
+            .setIncludeDeviceName(false)
+            .build()
+
+        // Empezamos a anunciar
+        advertiser?.startAdvertising(settings, data, advertiseCallback)
+        isAdvertising = true
+
+        // Log indicando que estamos enviando
+        Log.d(TAG, "Enviando ACK_START...")
+
+        // Programamos volver a llamarnos en 2 segundos
+        Handler(Looper.getMainLooper()).postDelayed({
+            stopAdvertisingIfNeeded()
+            // Si aún keepSendingAckStart es true, nos llamamos de nuevo
+            if (keepSendingAckStart) {
+                sendAckStartRepeatedly()
+            }
+        }, 2000)
+    }
 
     private fun handleScanResult(result: ScanResult) {
         val record = result.scanRecord ?: return
@@ -214,6 +258,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         } else if (dataString.startsWith("START:ALL")) {
+            // Aquí, decides si te quedas en esta misma Activity o pasas a otra:
             runOnUiThread {
                 goToWaitingActivity()
             }
@@ -226,6 +271,60 @@ class MainActivity : AppCompatActivity() {
      * Guarda el assignedCode en SharedPreferences (método B).
      */
     // FILE: MainActivity.kt (Estudiante)
+    private fun startAckStartAdvertising() {
+        // Si ya estamos anunciando ACK_START, no repitas
+        if (isAdvertisingAckStart) return
+
+        // Detenemos cualquier advertising anterior (por ejemplo, NAME o CONF)
+        stopAdvertisingIfNeeded()
+
+        val dataString = "ACK_START"
+        val dataToSend = dataString.toByteArray()
+
+        val settings = AdvertiseSettings.Builder()
+            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
+            .setConnectable(false)
+            .build()
+
+        val data = AdvertiseData.Builder()
+            .addManufacturerData(0x1234, dataToSend)
+            .setIncludeDeviceName(false)
+            .build()
+
+        advertiser?.startAdvertising(settings, data, advertiseCallback)
+        isAdvertising = true
+        isAdvertisingAckStart = true
+
+        Log.d(TAG, "Comenzado Advertising indefinido de ACK_START")
+    }
+
+    private fun advertiseAckStart() {
+        // Primero detenemos cualquier advertising previo
+        stopAdvertisingIfNeeded()
+
+        val dataString = "ACK_START"
+        val dataToSend = dataString.toByteArray()
+
+        val settings = AdvertiseSettings.Builder()
+            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
+            .setConnectable(false)
+            .build()
+
+        val data = AdvertiseData.Builder()
+            .addManufacturerData(0x1234, dataToSend)
+            .setIncludeDeviceName(false)
+            .build()
+
+        advertiser?.startAdvertising(settings, data, advertiseCallback)
+        isAdvertising = true
+
+        // Detenemos el advertising en 2s
+        Handler(Looper.getMainLooper()).postDelayed({
+            stopAdvertisingIfNeeded()
+        }, 2000)
+    }
 
     private fun advertiseAckCode(code: String) {
         stopAdvertisingIfNeeded() // si ya estabas haciendo un advertise, detenlo
@@ -261,6 +360,7 @@ class MainActivity : AppCompatActivity() {
     private fun goToWaitingActivity() {
         stopScan()
         stopAdvertisingIfNeeded()
+        saveAssignedCode(assignedCode.toString())
         val intent = Intent(this, WaitingActivity::class.java)
         startActivity(intent)
         finish()
@@ -268,6 +368,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        keepSendingAckStart = false
         stopScan()
         stopAdvertisingIfNeeded()
     }

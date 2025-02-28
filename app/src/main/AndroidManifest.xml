@@ -29,5 +29,7 @@
             android:exported="true"/>
         <activity android:name=".WaitResultsActivity"
             android:exported="true"/>
+        <activity android:name=".ShowAnswersActivity"
+            android:exported="true"/>
     </application>
 </manifest>

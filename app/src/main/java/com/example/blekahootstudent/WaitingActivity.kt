@@ -18,6 +18,7 @@ class WaitingActivity : AppCompatActivity() {
     private lateinit var bluetoothAdapter: BluetoothAdapter
     private var bluetoothLeScanner: BluetoothLeScanner? = null
     private var isScanning = false
+    private var advertiser: BluetoothLeAdvertiser? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,8 +28,10 @@ class WaitingActivity : AppCompatActivity() {
         val manager = getSystemService(BluetoothManager::class.java)
         bluetoothAdapter = manager.adapter
         bluetoothLeScanner = bluetoothAdapter.bluetoothLeScanner
-
+        advertiser = bluetoothAdapter.bluetoothLeAdvertiser
         startScanForNewRound()
+
+        startAdvertisingAckStartIndefinitely()
     }
 
     private fun startScanForNewRound() {
@@ -84,10 +87,66 @@ class WaitingActivity : AppCompatActivity() {
         Log.d(TAG, "Recibido: $dataString")
 
         if (dataString.startsWith("NEWROUND")) {
+            stopAdvertisingAckStart()
+            stopScan() // si escaneas aquí
             runOnUiThread {
-                stopScan()
-                goToAnswers()
+                startActivity(Intent(this, AnswersActivity::class.java))
+                finish()
             }
+        }
+    }
+    private var isAdvertising = false
+    private var isAdvertisingAckStart = false
+
+    private fun startAdvertisingAckStartIndefinitely() {
+        if (isAdvertisingAckStart) return // evita doble inicio
+
+        stopAdvertisingIfNeeded()
+
+        val dataString = "ACK_START"
+        val dataToSend = dataString.toByteArray()
+
+        val settings = AdvertiseSettings.Builder()
+            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
+            .setConnectable(false)
+            .build()
+
+        val data = AdvertiseData.Builder()
+            .addManufacturerData(0x1234, dataToSend)
+            .setIncludeDeviceName(false)
+            .build()
+
+        advertiser?.startAdvertising(settings, data, advertiseCallback)
+        isAdvertising = true
+        isAdvertisingAckStart = true
+
+        Log.d(TAG, "Iniciando anuncio indefinido de ACK_START en WaitingActivity")
+    }
+
+    private fun stopAdvertisingIfNeeded() {
+        if (isAdvertising) {
+            advertiser?.stopAdvertising(advertiseCallback)
+            isAdvertising = false
+            Log.d(TAG, "Advertising detenido")
+        }
+    }
+
+    private fun stopAdvertisingAckStart() {
+        if (!isAdvertisingAckStart) return
+        stopAdvertisingIfNeeded()
+        isAdvertisingAckStart = false
+        Log.d(TAG, "Publicidad ACK_START detenida")
+    }
+
+    private val advertiseCallback = object : AdvertiseCallback() {
+        override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
+            super.onStartSuccess(settingsInEffect)
+            Log.d(TAG, "Advertising ACK_START iniciado correctamente")
+        }
+        override fun onStartFailure(errorCode: Int) {
+            super.onStartFailure(errorCode)
+            Log.e(TAG, "Error al iniciar Advertising: $errorCode")
         }
     }
 
@@ -99,5 +158,6 @@ class WaitingActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         stopScan()
+        stopAdvertisingAckStart() // Detiene el ACK_START si sigue activo
     }
 }
