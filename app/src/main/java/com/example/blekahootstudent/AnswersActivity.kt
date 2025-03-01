@@ -38,6 +38,7 @@ class AnswersActivity : AppCompatActivity() {
 
     // Asignado en CONF. Lo leeremos de SharedPreferences
     private var assignedCode: String? = null
+    private var isAdvertisingResp = false
 
     private lateinit var btnA: Button
     private lateinit var btnB: Button
@@ -51,6 +52,7 @@ class AnswersActivity : AppCompatActivity() {
         // Recuperar assignedCode de SharedPreferences
         val prefs = getSharedPreferences("BLE_Kahoot_Student", MODE_PRIVATE)
         assignedCode = prefs.getString("assigned_code", null)
+
         Log.d(TAG, assignedCode.toString())
         // Referencias UI
         btnA = findViewById(R.id.btnA)
@@ -77,11 +79,24 @@ class AnswersActivity : AppCompatActivity() {
     /**
      * Enviar "RESP:<code>:<answer>"
      */
+    private fun saveAssignedCode(code: String) {
+        val prefs = getSharedPreferences("BLE_Kahoot_Student", MODE_PRIVATE)
+        prefs.edit().putString("assigned_code", code).apply()
+    }
+    private fun saveAnswer(code: String) {
+        val prefs = getSharedPreferences("BLE_Kahoot_Student", MODE_PRIVATE)
+        prefs.edit().putString("last_response", code).apply()
+    }
     private fun sendResponse(answer: String) {
         if (assignedCode == null) {
-
-            Toast.makeText(this, "No tienes code asignado " + assignedCode.toString(), Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "No tienes code asignado $assignedCode", Toast.LENGTH_SHORT).show()
             Log.d(TAG, assignedCode.toString())
+            return
+        }
+
+        // Si ya estoy anunciando la respuesta, no volver a anunciar
+        if (isAdvertisingResp) {
+            Toast.makeText(this, "Ya se está anunciando la respuesta", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -89,6 +104,7 @@ class AnswersActivity : AppCompatActivity() {
         val dataString = "RESP:$code:$answer"
         val dataToSend = dataString.toByteArray()
 
+        // Detiene cualquier anuncio previo que uses en esta misma Activity
         stopAdvertisingIfNeeded()
 
         val settings = AdvertiseSettings.Builder()
@@ -104,16 +120,22 @@ class AnswersActivity : AppCompatActivity() {
 
         advertiser?.startAdvertising(settings, data, advertiseCallback)
         isAdvertising = true
-
-        // Detener en 2s
-        Handler(Looper.getMainLooper()).postDelayed({
-            stopAdvertisingIfNeeded()
-        }, 2000)
+        isAdvertisingResp = true  // <-- Indica que estamos anunciando la respuesta indefinidamente
 
         disableButtons()
-        hasResponded = true // <-- Agrega esta línea
+        hasResponded = true
 
         Toast.makeText(this, "Respuesta enviada: $answer", Toast.LENGTH_SHORT).show()
+        saveAnswer(answer)
+
+        Log.d(TAG, "Iniciando anuncio indefinido de RESP:$code:$answer")
+    }
+
+    private fun stopAdvertisingResp() {
+        if (!isAdvertisingResp) return
+        stopAdvertisingIfNeeded()  // tu método que hace advertiser?.stopAdvertising(advertiseCallback)
+        isAdvertisingResp = false
+        Log.d(TAG, "Se ha detenido el anuncio indefinido de RESP")
     }
 
     private val advertiseCallback = object : AdvertiseCallback() {
@@ -238,6 +260,7 @@ class AnswersActivity : AppCompatActivity() {
                 val code = parts[1]
                 // Si code == assignedCode (o tu lógica), inicia la publicidad "ACKRES:code"
                 if (code == assignedCode) {
+                    stopAdvertisingResp()
                     startAckResAdvertisingIndefinitely(code)
                     goToWaitResults()
                 }
@@ -258,6 +281,7 @@ class AnswersActivity : AppCompatActivity() {
     }
 
     private fun goToWaitResults() {
+
         startActivity(Intent(this, WaitResultsActivity::class.java))
         finish()
     }

@@ -43,7 +43,7 @@ class ShowAnswersActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_show_answers)
-        startAdvertisingAckShowAwIndefinitely()
+
         // UI - recoger referencias
         btnA = findViewById(R.id.btnA)
         btnB = findViewById(R.id.btnB)
@@ -53,11 +53,13 @@ class ShowAnswersActivity : AppCompatActivity() {
         // Recuperar assignedCode y studentAnswer de SharedPreferences
         val prefs = getSharedPreferences("BLE_Kahoot_Student", MODE_PRIVATE)
         assignedCode = prefs.getString("assigned_code", null)
+        Log.d(TAG, "Code: "+assignedCode)
         studentAnswer = prefs.getString("last_response", null) // "A", "B", "C", "D", o "BLANK"
-
+        Log.d(TAG, "Answer: "+studentAnswer)
         // Recuperar correctAnswer (pasado desde WaitResultsActivity via Intent)
         correctAnswer = intent.getStringExtra("EXTRA_CORRECT_ANSWER")
-
+        Log.d(TAG, "Correct Answer: "+correctAnswer)
+        startAdvertisingAckShowAwIndefinitely()
         // BLE
         val manager = getSystemService(BluetoothManager::class.java)
         bluetoothAdapter = manager.adapter
@@ -93,13 +95,13 @@ class ShowAnswersActivity : AppCompatActivity() {
 
         val correct = correctAnswer!!
         val chosen = studentAnswer.orEmpty()
-
+        Log.d(TAG, "Correct "+ correct + " Answer "+ chosen)
         if (chosen == correct) {
             // Respondió correctamente
             colorButtonForAnswer(chosen, Color.GREEN)
         } else {
             // Resaltar la correcta en verde
-            colorButtonForAnswer(correct, Color.GREEN)
+            colorButtonForAnswer(correct, Color.BLUE)
             // Y si el alumno marcó otra, marcarla en rojo
             if (chosen.isNotEmpty() && chosen != "BLANK") {
                 colorButtonForAnswer(chosen, Color.RED)
@@ -110,11 +112,12 @@ class ShowAnswersActivity : AppCompatActivity() {
     private fun colorButtonForAnswer(answer: String, color: Int) {
         // Los botones tienen texto "A", "B", "C", "D"
         // Compara la respuesta en mayúscula
+        Log.d(TAG, "Boton "+ answer + " To color " +color.toString())
         when (answer.uppercase()) {
-            "A" -> btnA.setTextColor(color)
-            "B" -> btnB.setTextColor(color)
-            "C" -> btnC.setTextColor(color)
-            "D" -> btnD.setTextColor(color)
+            "A" -> btnA.setBackgroundColor(color)
+            "B" -> btnB.setBackgroundColor(color)
+            "C" -> btnC.setBackgroundColor(color)
+            "D" -> btnD.setBackgroundColor(color)
         }
     }
 
@@ -123,7 +126,7 @@ class ShowAnswersActivity : AppCompatActivity() {
     // ----------------------------------------
     private fun startAdvertisingAckShowAwIndefinitely() {
         if (assignedCode.isNullOrEmpty()) {
-            Log.e(TAG, "No assignedCode => no se puede enviar ACK_SHOWAW")
+            Log.e(TAG, "No assignedCode => no se puede enviar ACK_SHOWAW " + assignedCode)
             return
         }
         if (isAdvertisingAckShowAw) return // ya se está anunciando
