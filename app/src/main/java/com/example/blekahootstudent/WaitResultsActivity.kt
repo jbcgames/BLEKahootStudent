@@ -1,5 +1,6 @@
 package com.example.blekahootstudent
 
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.*
@@ -18,7 +19,11 @@ class WaitResultsActivity : AppCompatActivity() {
     private lateinit var bluetoothAdapter: BluetoothAdapter
     private var bluetoothLeScanner: BluetoothLeScanner? = null
     private var isScanning = false
-
+    @SuppressLint("MissingSuperCall")
+    override fun onBackPressed() {
+        // No llamamos a super => se desactiva el botón atrás
+        // Puedes mostrar un Toast si deseas notificar
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_wait_results)

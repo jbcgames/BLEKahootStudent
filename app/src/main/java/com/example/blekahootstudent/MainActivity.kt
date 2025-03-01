@@ -1,6 +1,7 @@
 package com.example.blekahootstudent
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.*
@@ -17,6 +18,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.view.WindowCompat
 
 class MainActivity : AppCompatActivity() {
 
@@ -40,9 +42,14 @@ class MainActivity : AppCompatActivity() {
 
     // Nombre del estudiante
     private var studentName: String? = null
-
+    @SuppressLint("MissingSuperCall")
+    override fun onBackPressed() {
+        // No llamamos a super => se desactiva el botón atrás
+        // Puedes mostrar un Toast si deseas notificar
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(R.layout.activity_main)
 
         // UI
@@ -195,7 +202,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // FILE: MainActivity.kt (Estudiante)
+   /* // FILE: MainActivity.kt (Estudiante)
     private fun sendAckStartRepeatedly() {
         // Si el flag es falso, no hacemos nada
         if (!keepSendingAckStart) return
@@ -235,7 +242,7 @@ class MainActivity : AppCompatActivity() {
             }
         }, 2000)
     }
-
+*/
     private fun handleScanResult(result: ScanResult) {
         val record = result.scanRecord ?: return
         val data = record.getManufacturerSpecificData(0x1234) ?: return
@@ -271,7 +278,7 @@ class MainActivity : AppCompatActivity() {
      * Guarda el assignedCode en SharedPreferences (método B).
      */
     // FILE: MainActivity.kt (Estudiante)
-    private fun startAckStartAdvertising() {
+  /*  private fun startAckStartAdvertising() {
         // Si ya estamos anunciando ACK_START, no repitas
         if (isAdvertisingAckStart) return
 
@@ -297,8 +304,8 @@ class MainActivity : AppCompatActivity() {
         isAdvertisingAckStart = true
 
         Log.d(TAG, "Comenzado Advertising indefinido de ACK_START")
-    }
-
+    }*/
+/*
     private fun advertiseAckStart() {
         // Primero detenemos cualquier advertising previo
         stopAdvertisingIfNeeded()
@@ -325,9 +332,15 @@ class MainActivity : AppCompatActivity() {
             stopAdvertisingIfNeeded()
         }, 2000)
     }
+*/
+    private var isAdvertisingAckCode = false
 
     private fun advertiseAckCode(code: String) {
-        stopAdvertisingIfNeeded() // si ya estabas haciendo un advertise, detenlo
+        // Si ya estamos anunciando ACKCODE, no volver a iniciarlo
+        if (isAdvertisingAckCode) return
+
+        // Detén cualquier advertising previo
+        stopAdvertisingIfNeeded()
 
         val dataString = "ACKCODE:$code"
         val dataToSend = dataString.toByteArray()
@@ -345,13 +358,19 @@ class MainActivity : AppCompatActivity() {
 
         advertiser?.startAdvertising(settings, data, advertiseCallback)
         isAdvertising = true
+        isAdvertisingAckCode = true
 
-        // Detener en 2s
-        Handler(Looper.getMainLooper()).postDelayed({
-            stopAdvertisingIfNeeded()
-        }, 2000)
+        // Ya NO detenemos en 2s, se queda indefinido hasta que
+        // manualmente llames a una función para detenerlo.
+        Log.d(TAG, "Iniciando ACKCODE:$code indefinidamente")
     }
 
+    fun stopAdvertisingAckCode() {
+        if (!isAdvertisingAckCode) return
+        stopAdvertisingIfNeeded()
+        isAdvertisingAckCode = false
+        Log.d(TAG, "Publicidad ACKCODE detenida")
+    }
     private fun saveAssignedCode(code: String) {
         val prefs = getSharedPreferences("BLE_Kahoot_Student", MODE_PRIVATE)
         prefs.edit().putString("assigned_code", code).apply()

@@ -1,5 +1,6 @@
 package com.example.blekahootstudent
 
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.*
@@ -39,7 +40,11 @@ class ShowAnswersActivity : AppCompatActivity() {
 
     // Flag advertising "ACK_SHOWAW"
     private var isAdvertisingAckShowAw = false
-
+    @SuppressLint("MissingSuperCall")
+    override fun onBackPressed() {
+        // No llamamos a super => se desactiva el botón atrás
+        // Puedes mostrar un Toast si deseas notificar
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_show_answers)
